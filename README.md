@@ -85,7 +85,9 @@ Then use the input field in the visualization with "Send to tmux" checked.
 - **Station panels** - Toggle with `P` to see recent tool history per workstation
 - **Context-aware animations** - Claude celebrates commits, shakes head on errors
 
-## Orchestration (Multi-Claude)
+## Multi-clauding
+
+![Multi-clauding](public/multiclaude.png)
 
 Run multiple Claude instances and direct work to each:
 

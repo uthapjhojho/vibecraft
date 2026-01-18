@@ -32,6 +32,7 @@ npm-debug.log*
 *.tsbuildinfo
 *.png
 !public/og-image.png
+!public/multiclaude.png
 bin/vibecraft
 scripts/test-*.sh
 todo.txt
