@@ -1,6 +1,7 @@
 #!/bin/bash
 # Vibecraft Startup Script
 # Starts both the Vite dev server and WebSocket server
+# Uses Doppler for secrets management (DEEPGRAM_API_KEY)
 
 set -e
 
@@ -23,4 +24,11 @@ echo "  Frontend: http://localhost:4002"
 echo "  WebSocket: ws://localhost:4003"
 echo ""
 
-npm run dev
+# Use Doppler if available, otherwise run directly
+if command -v doppler &> /dev/null; then
+  echo "Using Doppler for secrets..."
+  doppler run -- npm run dev
+else
+  echo "Warning: Doppler not found, running without secrets (voice input disabled)"
+  npm run dev
+fi
