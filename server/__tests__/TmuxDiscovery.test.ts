@@ -1,6 +1,7 @@
-import { discoverClaudeSessions } from '../TmuxDiscovery'
+import { discoverClaudeSessions } from '../TmuxDiscovery.js'
 import { exec } from 'child_process'
 import type { ExecException } from 'child_process'
+import type { DiscoveredSession } from '../../shared/types.js'
 
 jest.mock('child_process', () => ({
   exec: jest.fn(),
@@ -15,10 +16,12 @@ type TmuxMockOptions = {
   listPanesErrors?: Record<string, ExecException | null>
 }
 
-function createExecError(message: string, code?: string): ExecException {
+function createExecError(message: string, code?: string | number): ExecException {
   const error = new Error(message) as ExecException
-  if (code) {
-    error.code = code
+  if (code !== undefined) {
+    // ExecException can have string codes like 'ENOENT' in practice
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(error as any).code = code
   }
   return error
 }
@@ -63,7 +66,8 @@ function mockTmuxExec(options: TmuxMockOptions = {}): void {
     }
 
     if (callback) {
-      process.nextTick(() => callback(error, stdout, ''))
+      // Use unknown cast to handle complex Buffer types in test mocks
+      process.nextTick(() => (callback as (err: ExecException | null, stdout: string, stderr: string) => void)(error, stdout, ''))
     }
 
     return { pid: 1 } as unknown
@@ -107,7 +111,7 @@ describe('TmuxDiscovery', () => {
 
       const result = await discoverClaudeSessions()
 
-      expect(result.map((session) => session.tmuxSession).sort()).toEqual(['claude', 'claude-dev'])
+      expect(result.map((session: DiscoveredSession) => session.tmuxSession).sort()).toEqual(['claude', 'claude-dev'])
     })
 
     it('discovers Codex sessions alongside Claude', async () => {
@@ -122,7 +126,7 @@ describe('TmuxDiscovery', () => {
 
       const result = await discoverClaudeSessions()
 
-      const commands = result.map((session) => session.command).sort()
+      const commands = result.map((session: DiscoveredSession) => session.command).sort()
       expect(commands).toEqual(['claude', 'codex'])
     })
 

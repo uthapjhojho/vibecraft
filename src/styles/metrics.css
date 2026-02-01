@@ -1,3 +1,10 @@
+/* Metrics panel container */
+
+.metrics-container {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 /* Metrics panel */
 
 .metrics-panel {
@@ -119,4 +126,221 @@
 
 .metrics-row.metrics-error-high .metrics-value {
   color: var(--accent-red);
+}
+
+/* Panel header */
+.metrics-panel-header {
+  margin-bottom: 12px;
+}
+
+.metrics-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.metrics-panel-session {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+/* Section titles */
+.metrics-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.metrics-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Error bar */
+.metrics-row-error {
+  flex-wrap: wrap;
+}
+
+.metrics-error-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.metrics-error-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+
+/* Tool usage rows */
+.metrics-tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.metrics-tool-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.metrics-tool-label {
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metrics-tool-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics-tool-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.metrics-tool-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Hierarchy panel */
+.hierarchy-container {
+  padding: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.hierarchy-panel {
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.hierarchy-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.hierarchy-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.hierarchy-refresh-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.hierarchy-refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.hierarchy-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hierarchy-empty {
+  padding: 16px 12px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.hierarchy-node {
+  display: flex;
+  flex-direction: column;
+}
+
+.hierarchy-node-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.hierarchy-node-content:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.hierarchy-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.hierarchy-dot.completed {
+  opacity: 0.5;
+}
+
+.hierarchy-label {
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--text-primary);
+}
+
+.hierarchy-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(167, 139, 250, 0.2);
+  border: 1px solid rgba(167, 139, 250, 0.4);
+  border-radius: 10px;
+  color: #a78bfa;
+  text-transform: capitalize;
+}
+
+.hierarchy-status {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.hierarchy-status.completed {
+  color: #4ade80;
+}
+
+.hierarchy-children {
+  display: flex;
+  flex-direction: column;
 }

@@ -2,7 +2,7 @@
  * EventClient - WebSocket client for receiving Claude Code events
  */
 
-import type { AgentEvent, ServerMessage, ClientMessage, ManagedSession } from '../../shared/types'
+import type { AgentEvent, ServerMessage, ClientMessage, ManagedSession, DiscoveredSession } from '../../shared/types'
 
 export type EventHandler = (event: AgentEvent) => void
 export type HistoryHandler = (events: AgentEvent[]) => void
@@ -10,6 +10,7 @@ export type ConnectionHandler = (connected: boolean) => void
 export type TokensHandler = (data: { session: string; current: number; cumulative: number }) => void
 export type SessionsHandler = (sessions: ManagedSession[]) => void
 export type SessionUpdateHandler = (session: ManagedSession) => void
+export type SessionDiscoveredHandler = (session: DiscoveredSession) => void
 export type RawMessageHandler = (data: { type: string; payload?: unknown }) => void
 
 export interface EventClientOptions {
@@ -28,6 +29,7 @@ export class EventClient {
   private tokensHandlers: Set<TokensHandler> = new Set()
   private sessionsHandlers: Set<SessionsHandler> = new Set()
   private sessionUpdateHandlers: Set<SessionUpdateHandler> = new Set()
+  private sessionDiscoveredHandlers: Set<SessionDiscoveredHandler> = new Set()
   private rawMessageHandlers: Set<RawMessageHandler> = new Set()
   private reconnectAttempts = 0
   private reconnectTimeout: number | null = null
@@ -180,6 +182,11 @@ export class EventClient {
         this.notifySessionUpdateHandlers(message.payload)
         break
 
+      case 'session_discovered':
+        this.log('Session discovered:', message.payload.session.tmuxSession)
+        this.notifySessionDiscoveredHandlers(message.payload.session)
+        break
+
       default:
         // Pass unknown message types to raw message handlers
         this.notifyRawMessageHandlers(message as { type: string; payload?: unknown })
@@ -225,6 +232,11 @@ export class EventClient {
   onSessionUpdate(handler: SessionUpdateHandler): () => void {
     this.sessionUpdateHandlers.add(handler)
     return () => this.sessionUpdateHandlers.delete(handler)
+  }
+
+  onSessionDiscovered(handler: SessionDiscoveredHandler): () => void {
+    this.sessionDiscoveredHandlers.add(handler)
+    return () => this.sessionDiscoveredHandlers.delete(handler)
   }
 
   /** Handle raw messages that aren't standard event types (e.g., voice transcripts) */
@@ -289,6 +301,16 @@ export class EventClient {
         handler(session)
       } catch (e) {
         console.error('Session update handler error:', e)
+      }
+    }
+  }
+
+  private notifySessionDiscoveredHandlers(session: DiscoveredSession): void {
+    for (const handler of this.sessionDiscoveredHandlers) {
+      try {
+        handler(session)
+      } catch (e) {
+        console.error('Session discovered handler error:', e)
       }
     }
   }

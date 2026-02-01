@@ -1,4 +1,4 @@
-import { MetricsCollector } from '../MetricsCollector'
+import { MetricsCollector } from '../MetricsCollector.js'
 
 type ToolUseData = {
   tool: string

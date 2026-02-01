@@ -41,6 +41,10 @@ import type {
 import { DEFAULTS } from '../shared/defaults.js'
 import { GitStatusManager } from './GitStatusManager.js'
 import { ProjectsManager } from './ProjectsManager.js'
+import { discoverClaudeSessions } from './TmuxDiscovery.js'
+import { MetricsCollector } from './MetricsCollector.js'
+import { AgentHierarchy } from './AgentHierarchy.js'
+import type { DiscoveredSession } from '../shared/types.js'
 import { fileURLToPath } from 'url'
 
 // ============================================================================
@@ -313,6 +317,15 @@ const projectsManager = new ProjectsManager()
 
 /** Active voice transcription sessions (WebSocket client → Deepgram connection) */
 const voiceSessions = new Map<WebSocket, LiveClient>()
+
+/** Discovered Claude/Codex sessions via tmux scanning */
+const discoveredSessions = new Map<string, DiscoveredSession>()
+
+/** Metrics collector for aggregating session metrics */
+const metricsCollector = new MetricsCollector()
+
+/** Agent hierarchy tracker for parent-child session relationships */
+const agentHierarchy = new AgentHierarchy()
 
 /** Deepgram API key (loaded on startup) */
 let deepgramApiKey: string | null = null
@@ -749,6 +762,83 @@ function sendPermissionResponse(sessionId: string, optionNumber: string): boolea
   })
 
   return true
+}
+
+// ============================================================================
+// Metrics Broadcasting
+// ============================================================================
+
+/**
+ * Broadcast metrics updates to all clients
+ */
+function broadcastMetrics(): void {
+  const allMetrics = metricsCollector.getAllMetrics()
+  for (const [sessionId, metrics] of Object.entries(allMetrics)) {
+    broadcast({
+      type: 'metrics_update',
+      payload: { sessionId, metrics },
+    } as ServerMessage)
+  }
+}
+
+/**
+ * Start periodic metrics broadcasting
+ */
+function startMetricsBroadcast(): void {
+  // Broadcast metrics every 5 seconds
+  setInterval(broadcastMetrics, 5000)
+  log(`Metrics broadcasting started (5s interval)`)
+}
+
+// ============================================================================
+// Session Discovery (Auto-detect Claude/Codex in tmux)
+// ============================================================================
+
+/**
+ * Poll for Claude/Codex sessions in tmux
+ */
+async function pollDiscovery(): Promise<void> {
+  try {
+    const sessions = await discoverClaudeSessions()
+
+    for (const discovered of sessions) {
+      const key = `${discovered.tmuxSession}:${discovered.pid}`
+
+      // Check if this is a new session we haven't seen before
+      if (!discoveredSessions.has(key)) {
+        discoveredSessions.set(key, discovered)
+        log(`Discovered ${discovered.command} session: ${discovered.tmuxSession} (pid: ${discovered.pid}, cwd: ${discovered.cwd})`)
+
+        // Broadcast to clients
+        broadcast({
+          type: 'session_discovered',
+          payload: { session: discovered },
+        } as ServerMessage)
+      }
+    }
+
+    // Clean up stale discoveries (sessions that are no longer running)
+    const currentKeys = new Set(sessions.map(s => `${s.tmuxSession}:${s.pid}`))
+    for (const key of discoveredSessions.keys()) {
+      if (!currentKeys.has(key)) {
+        discoveredSessions.delete(key)
+        debug(`Removed stale discovered session: ${key}`)
+      }
+    }
+  } catch (error) {
+    debug(`Discovery poll failed: ${error}`)
+  }
+}
+
+/**
+ * Start polling for session discovery
+ */
+function startDiscoveryPolling(): void {
+  // Poll every 10 seconds
+  setInterval(pollDiscovery, 10_000)
+  // Also run immediately
+  pollDiscovery()
+  log(`Session discovery polling started (10s interval)`)
 }
 
 // ============================================================================
@@ -1259,6 +1349,12 @@ function findManagedSession(claudeSessionId: string): ManagedSession | undefined
 // ============================================================================
 
 function processEvent(event: AgentEvent): AgentEvent {
+  // Ensure session is tracked in hierarchy
+  if (!agentHierarchy.has(event.sessionId)) {
+    agentHierarchy.addRoot(event.sessionId)
+    debug(`Added session to hierarchy: ${event.sessionId}`)
+  }
+
   // Track pre_tool_use for duration calculation (Claude events)
   if (event.type === 'pre_tool_use') {
     const preEvent = event as PreToolUseEvent
@@ -1274,6 +1370,14 @@ function processEvent(event: AgentEvent): AgentEvent {
       postEvent.duration = postEvent.timestamp - preEvent.timestamp
       pendingToolUses.delete(postEvent.toolUseId)
       debug(`Tool ${postEvent.tool} took ${postEvent.duration}ms`)
+
+      // Record metrics for this tool use
+      metricsCollector.recordToolUse(event.sessionId, {
+        tool: postEvent.tool,
+        duration: postEvent.duration,
+        success: postEvent.success !== false,
+        // Token counts come from stop events, not tool uses
+      })
     }
   }
 
@@ -1606,6 +1710,39 @@ function handleHttpRequest(req: IncomingMessage, res: ServerResponse) {
     return
   }
 
+  // Get all session metrics
+  if (req.method === 'GET' && req.url === '/metrics') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({
+      ok: true,
+      metrics: metricsCollector.getAllMetrics(),
+    }))
+    return
+  }
+
+  // Get metrics for a specific session
+  const metricsMatch = req.url?.match(/^\/metrics\/([^/]+)$/)
+  if (req.method === 'GET' && metricsMatch) {
+    const sessionId = metricsMatch[1]
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({
+      ok: true,
+      sessionId,
+      metrics: metricsCollector.getMetrics(sessionId),
+    }))
+    return
+  }
+
+  // Get agent hierarchy
+  if (req.method === 'GET' && req.url === '/hierarchy') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({
+      ok: true,
+      hierarchy: agentHierarchy.getHierarchy(),
+    }))
+    return
+  }
+
   // Submit prompt from browser
   if (req.method === 'POST' && req.url === '/prompt') {
     collectRequestBody(req).then(body => {
@@ -1756,6 +1893,22 @@ function handleHttpRequest(req: IncomingMessage, res: ServerResponse) {
     // Return current sessions (health check updates async, but we give immediate response)
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ ok: true, sessions: getSessions() }))
+    return
+  }
+
+  // Manual trigger for session discovery
+  if (req.method === 'POST' && req.url === '/sessions/discover') {
+    log('Manual session discovery requested')
+    pollDiscovery().then(() => {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({
+        ok: true,
+        discovered: Array.from(discoveredSessions.values()),
+      }))
+    }).catch((error) => {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: String(error) }))
+    })
     return
   }
 
@@ -2359,6 +2512,7 @@ function main() {
     log(`  Prompt: http://localhost:${PORT}/prompt`)
     log(`  Health: http://localhost:${PORT}/health`)
     log(`  Stats: http://localhost:${PORT}/stats`)
+    log(`  Metrics: http://localhost:${PORT}/metrics`)
     log(`  Sessions: http://localhost:${PORT}/sessions`)
 
     // Start token polling after server is ready
@@ -2366,6 +2520,12 @@ function main() {
 
     // Start permission prompt polling
     startPermissionPolling()
+
+    // Start session discovery polling (auto-detect Claude/Codex in tmux)
+    startDiscoveryPolling()
+
+    // Start metrics broadcasting
+    startMetricsBroadcast()
 
     // Start session health checking (every 5 seconds)
     setInterval(checkSessionHealth, 5000)

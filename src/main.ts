@@ -31,6 +31,8 @@ import { getToolIcon } from './utils/ToolUtils'
 import { AttentionSystem } from './systems/AttentionSystem'
 import { TimelineManager } from './ui/TimelineManager'
 import { FeedManager, formatTokens, formatTimeAgo, escapeHtml } from './ui/FeedManager'
+import MetricsPanel from './ui/MetricsPanel'
+import HierarchyPanel from './ui/HierarchyPanel'
 import { ContextMenu, type ContextMenuContext } from './ui/ContextMenu'
 import { setupKeyboardShortcuts, getSessionKeybind } from './ui/KeyboardShortcuts'
 import { setupKeybindSettings, updateVoiceHint } from './ui/KeybindSettings'
@@ -126,6 +128,8 @@ interface AppState {
   attentionSystem: AttentionSystem | null  // Manages attention queue and notifications
   timelineManager: TimelineManager | null  // Manages icon timeline
   feedManager: FeedManager | null  // Manages activity feed
+  metricsPanel: MetricsPanel | null  // Displays session metrics
+  hierarchyPanel: HierarchyPanel | null  // Displays agent hierarchy
   soundEnabled: boolean  // Whether to play sounds
   hasAutoOverviewed: boolean  // Whether we've done initial auto-overview for 2+ sessions
   userChangedCamera: boolean  // Whether user has manually changed camera (to avoid overriding)
@@ -149,6 +153,8 @@ const state: AppState = {
   attentionSystem: null,  // Initialized in init()
   timelineManager: null,  // Initialized in init()
   feedManager: null,  // Initialized in init()
+  metricsPanel: null,  // Initialized in init()
+  hierarchyPanel: null,  // Initialized in init()
   soundEnabled: true,
   hasAutoOverviewed: false,
   userChangedCamera: false,
@@ -1660,6 +1666,14 @@ function focusSession(sessionId: string): void {
   // Update prompt target indicator
   updatePromptTarget(sessionId, session.color)
 
+  // Update metrics panel
+  const metrics = state.sessionMetrics.get(sessionId)
+  if (metrics) {
+    state.metricsPanel?.update(sessionId, metrics)
+  } else {
+    state.metricsPanel?.clear()
+  }
+
   updateStats()
 }
 
@@ -2666,6 +2680,39 @@ function init() {
   state.feedManager = new FeedManager()
   state.feedManager.setupScrollButton()
 
+  // Initialize metrics panel (create container if needed)
+  let metricsContainer = document.getElementById('metrics-container')
+  if (!metricsContainer) {
+    metricsContainer = document.createElement('div')
+    metricsContainer.id = 'metrics-container'
+    metricsContainer.className = 'metrics-container'
+    // Insert into right sidebar after sessions panel
+    const sessionsPanel = document.getElementById('managed-sessions')
+    if (sessionsPanel?.parentElement) {
+      sessionsPanel.parentElement.insertBefore(metricsContainer, sessionsPanel.nextSibling)
+    } else {
+      document.body.appendChild(metricsContainer)
+    }
+  }
+  state.metricsPanel = new MetricsPanel(metricsContainer)
+
+  // Initialize hierarchy panel
+  let hierarchyContainer = document.getElementById('hierarchy-container')
+  if (!hierarchyContainer) {
+    hierarchyContainer = document.createElement('div')
+    hierarchyContainer.id = 'hierarchy-container'
+    hierarchyContainer.className = 'hierarchy-container'
+    // Insert after metrics container
+    if (metricsContainer.parentElement) {
+      metricsContainer.parentElement.insertBefore(hierarchyContainer, metricsContainer.nextSibling)
+    } else {
+      document.body.appendChild(hierarchyContainer)
+    }
+  }
+  state.hierarchyPanel = new HierarchyPanel(hierarchyContainer, API_URL)
+  // Initial fetch of hierarchy
+  state.hierarchyPanel.refresh()
+
   // Register EventBus handlers (decoupled event handling)
   registerAllHandlers()
 
@@ -2728,6 +2775,14 @@ function init() {
       tokenCounter.textContent = `⚡ ${formatTokens(data.cumulative)}`
       tokenCounter.title = `${data.cumulative.toLocaleString()} tokens used`
     }
+  })
+
+  // Handle auto-discovered Claude/Codex sessions
+  state.client.onSessionDiscovered((discovered) => {
+    console.log(`Discovered ${discovered.command} session: ${discovered.tmuxSession} (cwd: ${discovered.cwd})`)
+    // Note: Auto-creation of managed sessions for discovered Claude instances
+    // is not implemented yet. Users can manually create sessions from the UI.
+    // Future enhancement: optionally auto-link discovered sessions to zones.
   })
 
   // Handle managed sessions updates
@@ -2907,6 +2962,10 @@ function init() {
       if (sessionId && metrics) {
         state.sessionMetrics.set(sessionId, metrics)
         renderManagedSessions()
+        // Update metrics panel if this is the focused session
+        if (state.focusedSessionId === sessionId) {
+          state.metricsPanel?.update(sessionId, metrics)
+        }
       }
     }
   })

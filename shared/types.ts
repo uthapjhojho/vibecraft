@@ -210,13 +210,12 @@ export interface PermissionOption {
 
 export interface SessionDiscoveredMessage {
   type: 'session_discovered'
-  session: DiscoveredSession
+  payload: { session: DiscoveredSession }
 }
 
 export interface MetricsUpdateMessage {
   type: 'metrics_update'
-  sessionId: string
-  metrics: MetricsData
+  payload: { sessionId: string; metrics: MetricsData }
 }
 
 /** Server -> Client messages */
@@ -350,6 +349,27 @@ export interface DiscoveredSession {
   cwd: string
   pid?: number
   discoveredAt: number // timestamp
+}
+
+// ============================================================================
+// Agent Hierarchy
+// ============================================================================
+
+/** A node in the agent hierarchy tree */
+export interface AgentNode {
+  sessionId: string
+  parentId: string | null
+  toolUseId: string | null // The toolUseId that spawned this agent
+  description: string | null // Description from the Task tool
+  subagentType: string | null // Type of subagent (e.g., 'Explore', 'Plan')
+  spawnedAt: number
+  completedAt: number | null
+}
+
+/** Full hierarchy data for serialization */
+export interface HierarchyData {
+  nodes: Record<string, AgentNode>
+  roots: string[] // Session IDs with no parent
 }
 
 // ============================================================================
