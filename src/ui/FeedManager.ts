@@ -9,7 +9,7 @@
  */
 
 import { getToolIcon } from '../utils/ToolUtils'
-import type { ClaudeEvent, PreToolUseEvent, PostToolUseEvent } from '../../shared/types'
+import type { AgentEvent, PreToolUseEvent, PostToolUseEvent } from '../../shared/types'
 
 export class FeedManager {
   private feedEl: HTMLElement | null = null
@@ -192,7 +192,7 @@ export class FeedManager {
   /**
    * Add an event to the feed
    */
-  add(event: ClaudeEvent, sessionColor?: number): void {
+  add(event: AgentEvent, sessionColor?: number): void {
     if (!this.feedEl) return
 
     // Skip duplicates

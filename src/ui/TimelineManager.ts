@@ -8,7 +8,7 @@
  */
 
 import { getToolIcon } from '../utils/ToolUtils'
-import type { ClaudeEvent, PreToolUseEvent, PostToolUseEvent } from '../../shared/types'
+import type { AgentEvent, PreToolUseEvent, PostToolUseEvent } from '../../shared/types'
 
 export class TimelineManager {
   private timelineEl: HTMLElement | null = null
@@ -37,7 +37,7 @@ export class TimelineManager {
   /**
    * Add an event to the timeline
    */
-  add(event: ClaudeEvent, sessionColor?: number): void {
+  add(event: AgentEvent, sessionColor?: number): void {
     if (!this.timelineEl) return
 
     // Skip duplicates
@@ -135,7 +135,7 @@ export class TimelineManager {
   /**
    * Create a timeline icon element for an event
    */
-  private createIcon(event: ClaudeEvent): HTMLElement {
+  private createIcon(event: AgentEvent): HTMLElement {
     const icon = document.createElement('div')
     icon.className = 'timeline-icon'
 
@@ -222,7 +222,7 @@ export class TimelineManager {
   /**
    * Setup click handler to scroll to feed item
    */
-  private setupClickHandler(icon: HTMLElement, event: ClaudeEvent): void {
+  private setupClickHandler(icon: HTMLElement, event: AgentEvent): void {
     icon.addEventListener('click', () => {
       const feed = document.getElementById('activity-feed')
       if (!feed) return

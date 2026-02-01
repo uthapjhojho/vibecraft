@@ -8,19 +8,35 @@
  */
 
 // ============================================================================
+// Agent Types (Claude Code vs OpenAI Codex)
+// ============================================================================
+
+export type AgentType = 'claude' | 'codex'
+
+export const AGENT_TYPES = {
+  CLAUDE: 'claude' as AgentType,
+  CODEX: 'codex' as AgentType,
+}
+
+// ============================================================================
 // Core Event Types
 // ============================================================================
 
 export type HookEventType =
+  // Claude Code events
   | 'pre_tool_use'
   | 'post_tool_use'
   | 'stop'
   | 'subagent_stop'
   | 'session_start'
   | 'session_end'
+  | 'session_discovered'
   | 'user_prompt_submit'
   | 'notification'
   | 'pre_compact'
+  // Codex events
+  | 'agent_turn_complete'
+  | 'approval_requested'
 
 export type ToolName =
   | 'Read'
@@ -48,7 +64,9 @@ export interface BaseEvent {
   timestamp: number
   /** Event type */
   type: HookEventType
-  /** Claude Code session ID */
+  /** Agent type (claude or codex) */
+  agentType?: AgentType
+  /** Session ID (Claude Code session ID or Codex thread ID) */
   sessionId: string
   /** Current working directory */
   cwd: string
@@ -129,6 +147,34 @@ export interface PreCompactEvent extends BaseEvent {
   customInstructions?: string
 }
 
+export interface SessionDiscoveredEvent extends BaseEvent {
+  type: 'session_discovered'
+  tmuxSession: string
+  command: string
+  cwd: string
+  pid?: number
+}
+
+// ============================================================================
+// Codex Events
+// ============================================================================
+
+export interface AgentTurnCompleteEvent extends BaseEvent {
+  type: 'agent_turn_complete'
+  agentType: 'codex'
+  /** Codex turn ID */
+  turnId?: string
+  /** Last assistant message from Codex */
+  message?: string
+}
+
+export interface ApprovalRequestedEvent extends BaseEvent {
+  type: 'approval_requested'
+  agentType: 'codex'
+  /** Raw Codex notification data */
+  raw?: Record<string, unknown>
+}
+
 // ============================================================================
 // Union Type
 // ============================================================================
@@ -140,9 +186,17 @@ export type ClaudeEvent =
   | SubagentStopEvent
   | SessionStartEvent
   | SessionEndEvent
+  | SessionDiscoveredEvent
   | UserPromptSubmitEvent
   | NotificationEvent
   | PreCompactEvent
+
+export type CodexEvent =
+  | AgentTurnCompleteEvent
+  | ApprovalRequestedEvent
+
+/** All agent events (Claude + Codex) */
+export type AgentEvent = ClaudeEvent | CodexEvent
 
 // ============================================================================
 // WebSocket Messages
@@ -154,10 +208,21 @@ export interface PermissionOption {
   label: string    // "Yes", "Yes, and always allow...", "No"
 }
 
+export interface SessionDiscoveredMessage {
+  type: 'session_discovered'
+  session: DiscoveredSession
+}
+
+export interface MetricsUpdateMessage {
+  type: 'metrics_update'
+  sessionId: string
+  metrics: MetricsData
+}
+
 /** Server -> Client messages */
 export type ServerMessage =
-  | { type: 'event'; payload: ClaudeEvent }
-  | { type: 'history'; payload: ClaudeEvent[] }
+  | { type: 'event'; payload: AgentEvent }
+  | { type: 'history'; payload: AgentEvent[] }
   | { type: 'connected'; payload: { sessionId: string } }
   | { type: 'error'; payload: { message: string } }
   | { type: 'tokens'; payload: { session: string; current: number; cumulative: number } }
@@ -166,6 +231,8 @@ export type ServerMessage =
   | { type: 'permission_prompt'; payload: { sessionId: string; tool: string; context: string; options: PermissionOption[] } }
   | { type: 'permission_resolved'; payload: { sessionId: string } }
   | { type: 'text_tiles'; payload: TextTile[] }
+  | SessionDiscoveredMessage
+  | MetricsUpdateMessage
 
 /** Client -> Server messages */
 export type ClientMessage =
@@ -257,13 +324,42 @@ export interface TaskToolInput {
 }
 
 // ============================================================================
+// Metrics & Discovery
+// ============================================================================
+
+export interface MetricsData {
+  tokens: {
+    input: number
+    output: number
+    total: number
+    cost: number // USD estimate
+  }
+  latency: {
+    avg: number
+    p95: number
+    p99: number
+  }
+  errorRate: number
+  toolCounts: Record<string, number>
+  duration: number // session duration in ms
+}
+
+export interface DiscoveredSession {
+  tmuxSession: string
+  command: string
+  cwd: string
+  pid?: number
+  discoveredAt: number // timestamp
+}
+
+// ============================================================================
 // Session Management (Orchestration)
 // ============================================================================
 
 /** Status of a managed Claude session */
 export type SessionStatus = 'idle' | 'working' | 'waiting' | 'offline'
 
-/** A managed Claude session */
+/** A managed agent session (Claude or Codex) */
 export interface ManagedSession {
   /** Our internal ID (UUID) */
   id: string
@@ -273,7 +369,9 @@ export interface ManagedSession {
   tmuxSession: string
   /** Current status */
   status: SessionStatus
-  /** Claude Code session ID (from events, may differ from our ID) */
+  /** Agent type (claude or codex) */
+  agentType?: AgentType
+  /** Claude Code session ID or Codex thread ID (from events, may differ from our ID) */
   claudeSessionId?: string
   /** Creation timestamp */
   createdAt: number

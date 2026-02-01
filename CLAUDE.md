@@ -137,6 +137,18 @@ tmux send-keys -t claude -l 'text' && sleep 0.1 && tmux send-keys -t claude Ente
 ```
 The `-l` flag sends text literally, then Enter is sent separately after a delay.
 
+### `server/TmuxDiscovery.ts`
+Auto-discovers Claude/Codex tmux sessions:
+
+- Scans tmux sessions and panes to find active agent processes
+- Emits `session_discovered` events with tmux session details (name, command, cwd, pid)
+
+### `server/MetricsCollector.ts`
+Session metrics aggregation and broadcast:
+
+- Tracks token usage, latency percentiles, error rate, tool counts, and session duration
+- Periodically emits `metrics_update` messages for the UI and API endpoints
+
 ### `src/scene/WorkshopScene.ts`
 Three.js 3D scene setup:
 
@@ -153,6 +165,12 @@ Three.js 3D scene setup:
 **World grid**: `createWorldHexGrid()` renders ~127 hex outlines (6 rings from center) on the floor at y=0.01, using the same coordinate math as zone placement.
 
 **Zone positioning**: Uses axial hex coordinates converted to cartesian. `indexToHexCoord()` maps linear index to spiral position.
+
+### `src/scene/AgentHierarchy.ts`
+Renders the agent relationship graph in the 3D scene:
+
+- Draws line connections between parent and child agents/subagents
+- Updates hierarchy visuals as sessions spawn or complete
 
 ### `src/entities/ClaudeMon.ts`
 The main animated character (robot buddy). `Claude.ts` contains the legacy simpler character.
@@ -295,6 +313,12 @@ feedManager.showThinking(sessionId)      // Show "Claude is thinking..."
 feedManager.hideThinking(sessionId)      // Remove thinking indicator
 ```
 
+### `src/ui/MetricsPanel.ts`
+Sidebar panel for real-time metrics:
+
+- Displays per-session token usage, latency, and error rate
+- Subscribes to periodic `metrics_update` broadcasts
+
 ### `src/ui/QuestionModal.ts`
 AskUserQuestion tool UI:
 
@@ -386,6 +410,23 @@ CSS is imported in `main.ts` via `import './styles/index.css'` and bundled by Vi
 | `stop` | Claude stops responding | `reason` |
 | `user_prompt_submit` | User sends prompt | `prompt` |
 | `notification` | System notification | `message` |
+| `session_discovered` | New tmux session detected | `tmuxSession`, `command`, `cwd`, `pid` |
+| `metrics_update` | Periodic metrics broadcast | `sessionId`, `metrics` |
+
+## API Endpoints
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/sessions/discover` | Force a tmux discovery scan |
+| `GET` | `/metrics` | Return metrics for all sessions |
+| `GET` | `/metrics/:sessionId` | Return metrics for a single session |
+
+**Examples:**
+```bash
+curl http://localhost:4003/sessions/discover
+curl http://localhost:4003/metrics
+curl http://localhost:4003/metrics/session-123
+```
 
 ## Station Mapping
 
@@ -485,10 +526,15 @@ Environment variables override the defaults:
 | `VIBECRAFT_PORT` | 4003 | WebSocket/API server port |
 | `VIBECRAFT_CLIENT_PORT` | 4002 | Vite dev server port |
 | `VIBECRAFT_EVENTS_FILE` | ~/.vibecraft/data/events.jsonl | Event log path |
+| `VIBECRAFT_PROMPT_FILE` | ~/.vibecraft/data/pending-prompt.txt | Pending prompt queue file |
+| `VIBECRAFT_TILES_FILE` | ~/.vibecraft/data/tiles.json | Text tile persistence file |
+| `VIBECRAFT_MAX_EVENTS` | 1000 | Max events kept in memory |
 | `VIBECRAFT_DEBUG` | false | Enable verbose logging |
 | `VIBECRAFT_TMUX_SESSION` | claude | tmux session for prompt injection |
 | `VIBECRAFT_SESSIONS_FILE` | ~/.vibecraft/data/sessions.json | Session persistence file |
 | `VIBECRAFT_DATA_DIR` | ~/.vibecraft/data | Hook data directory |
+| `VIBECRAFT_WS_NOTIFY` | http://localhost:4003/event | Hook notify endpoint |
+| `VIBECRAFT_ENABLE_WS_NOTIFY` | true | Enable hook HTTP notifications |
 | `DEEPGRAM_API_KEY` | (none) | Deepgram API key for voice input |
 
 A `.env` file is included with defaults - just run `npm run dev`.
@@ -537,6 +583,10 @@ Client rebuilds its local `claudeToManagedLink` map from server data on every `s
 
 ## Recent Features Added
 
+- **Auto-discovery**: Automatic detection of Claude/Codex tmux sessions
+- **Session metrics**: Token usage, latency, and error rate tracking per session
+- **Metrics panel**: Real-time metrics display in the sidebar
+- **Agent hierarchy**: Visual lines connecting parent-child agents
 - **Floating context labels**: Text sprites above stations showing current file/command
 - **Thought bubbles**: Animated bubbles when Claude is thinking (full) or working (small)
 - **Response capture**: Stop hook reads transcript to extract Claude's text response

@@ -16,10 +16,11 @@ import { EventClient } from './events/EventClient'
 import { eventBus, type EventContext, type EventType } from './events/EventBus'
 import { registerAllHandlers } from './events/handlers'
 import {
-  type ClaudeEvent,
+  type AgentEvent,
   type PreToolUseEvent,
   type PostToolUseEvent,
   type ManagedSession,
+  type MetricsData,
 } from '../shared/types'
 import { soundManager } from './audio'
 
@@ -117,10 +118,11 @@ interface AppState {
   client: EventClient | null
   sessions: Map<string, SessionState>
   focusedSessionId: string | null  // Currently focused session for camera/prompts
-  eventHistory: ClaudeEvent[]
+  eventHistory: AgentEvent[]
   managedSessions: ManagedSession[]  // Managed sessions from server
   selectedManagedSession: string | null  // Selected managed session ID for prompts
   serverCwd: string  // Server's working directory
+  sessionMetrics: Map<string, MetricsData>  // Metrics keyed by session ID
   attentionSystem: AttentionSystem | null  // Manages attention queue and notifications
   timelineManager: TimelineManager | null  // Manages icon timeline
   feedManager: FeedManager | null  // Manages activity feed
@@ -143,6 +145,7 @@ const state: AppState = {
   serverCwd: '~',
   managedSessions: [],
   selectedManagedSession: null,
+  sessionMetrics: new Map(),
   attentionSystem: null,  // Initialized in init()
   timelineManager: null,  // Initialized in init()
   feedManager: null,  // Initialized in init()
@@ -176,6 +179,38 @@ const ZONE_CREATION_TIMEOUT = 10000
 // ============================================================================
 // Managed Sessions (Orchestration)
 // ============================================================================
+
+function formatMetricCount(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  const absValue = Math.abs(value)
+  if (absValue >= 1000) {
+    const formatted = (value / 1000).toFixed(1).replace(/\.0$/, '')
+    return `${formatted}K`
+  }
+  return `${Math.round(value)}`
+}
+
+function formatErrorRate(value: number): string {
+  if (!Number.isFinite(value)) return '0.0%'
+  const percentValue = value <= 1 ? value * 100 : value
+  return `${percentValue.toFixed(1)}%`
+}
+
+function formatMetricsForTooltip(metrics: MetricsData | null): string {
+  if (!metrics) return 'No metrics yet'
+
+  const inputTokens = formatMetricCount(metrics.tokens.input)
+  const outputTokens = formatMetricCount(metrics.tokens.output)
+  const cost = Number.isFinite(metrics.tokens.cost) ? metrics.tokens.cost : 0
+  const avgLatency = Number.isFinite(metrics.latency.avg) ? Math.round(metrics.latency.avg) : 0
+  const errorRate = formatErrorRate(metrics.errorRate)
+
+  return [
+    `Tokens: ${inputTokens} in / ${outputTokens} out ($${cost.toFixed(2)})`,
+    `Avg Latency: ${avgLatency}ms`,
+    `Error Rate: ${errorRate}`,
+  ].join('\n')
+}
 
 /**
  * Render the managed sessions list
@@ -264,6 +299,14 @@ function renderManagedSessions(): void {
       session.lastActivity ? `Last active: ${new Date(session.lastActivity).toLocaleString()}` : '',
       lastPrompt ? `Last prompt: ${lastPrompt}` : '',
     ].filter(Boolean)
+
+    const metrics = session.claudeSessionId
+      ? state.sessionMetrics.get(session.claudeSessionId) ?? state.sessionMetrics.get(session.id)
+      : state.sessionMetrics.get(session.id)
+
+    if (session.status !== 'offline') {
+      tooltipParts.push('--- Metrics ---', formatMetricsForTooltip(metrics ?? null))
+    }
     el.title = tooltipParts.join('\n')
 
     el.innerHTML = `
@@ -1745,7 +1788,7 @@ function updateStats() {
 // Event Handling
 // ============================================================================
 
-function handleEvent(event: ClaudeEvent) {
+function handleEvent(event: AgentEvent) {
   // Get or create session for this event
   // Returns null if the session isn't linked to a managed session
   const session = getOrCreateSession(event.sessionId)
@@ -2858,6 +2901,12 @@ function init() {
       const tiles = message.payload as import('../shared/types').TextTile[]
       if (state.scene) {
         state.scene.setTextTiles(tiles)
+      }
+    } else if (message.type === 'metrics_update') {
+      const { sessionId, metrics } = message.payload as { sessionId: string; metrics: MetricsData }
+      if (sessionId && metrics) {
+        state.sessionMetrics.set(sessionId, metrics)
+        renderManagedSessions()
       }
     }
   })

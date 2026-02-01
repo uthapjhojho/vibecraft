@@ -2,10 +2,10 @@
  * EventClient - WebSocket client for receiving Claude Code events
  */
 
-import type { ClaudeEvent, ServerMessage, ClientMessage, ManagedSession } from '../../shared/types'
+import type { AgentEvent, ServerMessage, ClientMessage, ManagedSession } from '../../shared/types'
 
-export type EventHandler = (event: ClaudeEvent) => void
-export type HistoryHandler = (events: ClaudeEvent[]) => void
+export type EventHandler = (event: AgentEvent) => void
+export type HistoryHandler = (events: AgentEvent[]) => void
 export type ConnectionHandler = (connected: boolean) => void
 export type TokensHandler = (data: { session: string; current: number; cumulative: number }) => void
 export type SessionsHandler = (sessions: ManagedSession[]) => void
@@ -233,7 +233,7 @@ export class EventClient {
     return () => this.rawMessageHandlers.delete(handler)
   }
 
-  private notifyEventHandlers(event: ClaudeEvent): void {
+  private notifyEventHandlers(event: AgentEvent): void {
     for (const handler of this.eventHandlers) {
       try {
         handler(event)
@@ -243,7 +243,7 @@ export class EventClient {
     }
   }
 
-  private notifyHistoryHandlers(events: ClaudeEvent[]): void {
+  private notifyHistoryHandlers(events: AgentEvent[]): void {
     for (const handler of this.historyHandlers) {
       try {
         handler(events)

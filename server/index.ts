@@ -21,10 +21,14 @@ import { createClient, LiveTranscriptionEvents } from '@deepgram/sdk'
 import type { LiveClient } from '@deepgram/sdk'
 import type {
   ClaudeEvent,
+  CodexEvent,
+  AgentEvent,
+  AgentType,
   ServerMessage,
   ClientMessage,
   PreToolUseEvent,
   PostToolUseEvent,
+  AgentTurnCompleteEvent,
   ManagedSession,
   CreateSessionRequest,
   UpdateSessionRequest,
@@ -252,8 +256,8 @@ async function sendToTmuxSafe(tmuxSession: string, text: string): Promise<void> 
 // State
 // ============================================================================
 
-/** All events in memory */
-const events: ClaudeEvent[] = []
+/** All events in memory (Claude + Codex) */
+const events: AgentEvent[] = []
 
 /** Track seen event IDs to prevent duplicates (from file watcher + POST) */
 const seenEventIds = new Set<string>()
@@ -1254,15 +1258,15 @@ function findManagedSession(claudeSessionId: string): ManagedSession | undefined
 // Event Processing
 // ============================================================================
 
-function processEvent(event: ClaudeEvent): ClaudeEvent {
-  // Track pre_tool_use for duration calculation
+function processEvent(event: AgentEvent): AgentEvent {
+  // Track pre_tool_use for duration calculation (Claude events)
   if (event.type === 'pre_tool_use') {
     const preEvent = event as PreToolUseEvent
     pendingToolUses.set(preEvent.toolUseId, preEvent)
     debug(`Tracking tool use: ${preEvent.tool} (${preEvent.toolUseId})`)
   }
 
-  // Calculate duration for post_tool_use
+  // Calculate duration for post_tool_use (Claude events)
   if (event.type === 'post_tool_use') {
     const postEvent = event as PostToolUseEvent
     const preEvent = pendingToolUses.get(postEvent.toolUseId)
@@ -1273,10 +1277,15 @@ function processEvent(event: ClaudeEvent): ClaudeEvent {
     }
   }
 
+  // Log Codex events
+  if (event.agentType === 'codex') {
+    debug(`Codex event: ${event.type} (session: ${event.sessionId})`)
+  }
+
   return event
 }
 
-function addEvent(event: ClaudeEvent) {
+function addEvent(event: AgentEvent) {
   // Skip duplicates (hook writes to file AND posts to server)
   if (seenEventIds.has(event.id)) {
     debug(`Skipping duplicate event: ${event.id}`)
@@ -1306,8 +1315,14 @@ function addEvent(event: ClaudeEvent) {
     managedSession.lastActivity = Date.now() // Use current time for accurate timeout tracking
     managedSession.cwd = event.cwd
 
+    // Update agent type if this is the first event from this session
+    if (event.agentType && !managedSession.agentType) {
+      managedSession.agentType = event.agentType
+    }
+
     // Update status based on event type
     switch (event.type) {
+      // Claude events
       case 'pre_tool_use':
         managedSession.status = 'working'
         managedSession.currentTool = (event as PreToolUseEvent).tool
@@ -1320,7 +1335,7 @@ function addEvent(event: ClaudeEvent) {
         break
 
       case 'user_prompt_submit':
-        // User submitted prompt - Claude is now processing
+        // User submitted prompt - agent is now processing
         managedSession.status = 'working'
         managedSession.currentTool = undefined
         break
@@ -1329,6 +1344,18 @@ function addEvent(event: ClaudeEvent) {
       case 'session_end':
         managedSession.status = 'idle'
         managedSession.currentTool = undefined
+        break
+
+      // Codex events
+      case 'agent_turn_complete':
+        // Codex completed a turn - transition to idle
+        managedSession.status = 'idle'
+        managedSession.currentTool = undefined
+        break
+
+      case 'approval_requested':
+        // Codex is waiting for approval
+        managedSession.status = 'waiting'
         break
     }
 
@@ -1358,7 +1385,7 @@ function loadEventsFromFile() {
 
   for (const line of lines) {
     try {
-      const event = JSON.parse(line) as ClaudeEvent
+      const event = JSON.parse(line) as AgentEvent
       processEvent(event)
       events.push(event)
     } catch (e) {
@@ -1399,9 +1426,9 @@ function watchEventsFile() {
 
         for (const line of newLines) {
           try {
-            const event = JSON.parse(line) as ClaudeEvent
+            const event = JSON.parse(line) as AgentEvent
             addEvent(event)
-            debug(`New event from file: ${event.type}`)
+            debug(`New event from file: ${event.type} (agent: ${event.agentType || 'unknown'})`)
           } catch (e) {
             debug(`Failed to parse new event: ${line}`)
           }
@@ -1497,9 +1524,9 @@ function handleHttpRequest(req: IncomingMessage, res: ServerResponse) {
   if (req.method === 'POST' && req.url === '/event') {
     collectRequestBody(req).then(body => {
       try {
-        const event = JSON.parse(body) as ClaudeEvent
+        const event = JSON.parse(body) as AgentEvent
         addEvent(event)
-        debug(`Received event via HTTP: ${event.type}`)
+        debug(`Received event via HTTP: ${event.type} (agent: ${event.agentType || 'unknown'})`)
         res.writeHead(200, { 'Content-Type': 'application/json' })
         res.end(JSON.stringify({ ok: true }))
       } catch (e) {

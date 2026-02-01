@@ -183,12 +183,14 @@ if (args[0] === 'setup') {
   console.log(`Claude settings: ${settingsPath}`)
 
   // ==========================================================================
-  // Step 2: Install hook script to ~/.vibecraft/hooks/
+  // Step 2: Install hook scripts to ~/.vibecraft/hooks/
   // ==========================================================================
 
   const vibecraftHooksDir = join(homedir(), '.vibecraft', 'hooks')
   const installedHookPath = join(vibecraftHooksDir, 'vibecraft-hook.sh')
+  const installedCodexHookPath = join(vibecraftHooksDir, 'codex-hook.sh')
   const sourceHookPath = resolve(ROOT, 'hooks/vibecraft-hook.sh')
+  const sourceCodexHookPath = resolve(ROOT, 'hooks/codex-hook.sh')
 
   // Ensure hooks directory exists
   if (!existsSync(vibecraftHooksDir)) {
@@ -210,6 +212,17 @@ if (args[0] === 'setup') {
   } catch (e) {
     console.error(`ERROR: Failed to install hook script: ${e.message}`)
     process.exit(1)
+  }
+
+  // Install Codex hook script
+  if (existsSync(sourceCodexHookPath)) {
+    try {
+      copyFileSync(sourceCodexHookPath, installedCodexHookPath)
+      chmodSync(installedCodexHookPath, 0o755)
+      console.log(`Installed Codex hook: ${installedCodexHookPath}`)
+    } catch (e) {
+      console.warn(`Warning: Failed to install Codex hook: ${e.message}`)
+    }
   }
 
   // ==========================================================================
@@ -291,14 +304,60 @@ if (args[0] === 'setup') {
   }
 
   // ==========================================================================
-  // Step 5: Verify and report
+  // Step 5: Configure Codex (if installed)
+  // ==========================================================================
+
+  const codexConfigPath = join(homedir(), '.codex', 'config.toml')
+  const codexConfigDir = dirname(codexConfigPath)
+  let codexConfigured = false
+
+  if (existsSync(codexConfigDir)) {
+    console.log(`\nConfiguring Codex...`)
+    console.log(`Codex config: ${codexConfigPath}`)
+
+    try {
+      let codexConfig = ''
+      if (existsSync(codexConfigPath)) {
+        codexConfig = readFileSync(codexConfigPath, 'utf-8')
+        // Backup existing config
+        const backupPath = `${codexConfigPath}.backup-${Date.now()}`
+        writeFileSync(backupPath, codexConfig)
+        console.log(`Backed up Codex config: ${backupPath}`)
+      }
+
+      // Check if notify is already configured
+      if (codexConfig.includes('notify')) {
+        // Update existing notify line
+        const notifyRegex = /^notify\s*=\s*\[.*\]$/m
+        if (notifyRegex.test(codexConfig)) {
+          codexConfig = codexConfig.replace(notifyRegex, `notify = ["${installedCodexHookPath}"]`)
+        } else {
+          console.log(`  Note: Codex notify already configured (complex format), skipping`)
+        }
+      } else {
+        // Add notify configuration at the top
+        codexConfig = `# Vibecraft notification hook\nnotify = ["${installedCodexHookPath}"]\n\n${codexConfig}`
+      }
+
+      writeFileSync(codexConfigPath, codexConfig)
+      console.log(`Updated Codex config with vibecraft hook`)
+      codexConfigured = true
+    } catch (e) {
+      console.warn(`Warning: Failed to configure Codex: ${e.message}`)
+    }
+  } else {
+    console.log(`\nCodex not found (no ~/.codex directory) - skipping Codex setup`)
+  }
+
+  // ==========================================================================
+  // Step 6: Verify and report
   // ==========================================================================
 
   console.log('\n' + '='.repeat(50))
   console.log('Setup complete!')
   console.log('='.repeat(50))
 
-  console.log('\nHooks configured:')
+  console.log('\nClaude Code hooks configured:')
   console.log('  - PreToolUse')
   console.log('  - PostToolUse')
   console.log('  - Stop')
@@ -307,6 +366,11 @@ if (args[0] === 'setup') {
   console.log('  - SessionEnd')
   console.log('  - UserPromptSubmit')
   console.log('  - Notification')
+
+  if (codexConfigured) {
+    console.log('\nCodex configured:')
+    console.log('  - notify hook (agent-turn-complete events)')
+  }
 
   // Check dependencies
   let hasWarnings = false
@@ -446,13 +510,43 @@ if (args[0] === 'uninstall') {
   }
 
   // ==========================================================================
-  // Step 3: Remove hook script (but keep data)
+  // Step 3: Remove hook scripts (but keep data)
   // ==========================================================================
 
   const hookScript = join(homedir(), '.vibecraft', 'hooks', 'vibecraft-hook.sh')
   if (existsSync(hookScript)) {
     rmSync(hookScript)
     console.log(`Removed: ${hookScript}`)
+  }
+
+  const codexHookScript = join(homedir(), '.vibecraft', 'hooks', 'codex-hook.sh')
+  if (existsSync(codexHookScript)) {
+    rmSync(codexHookScript)
+    console.log(`Removed: ${codexHookScript}`)
+  }
+
+  // ==========================================================================
+  // Step 4: Remove Codex notify configuration (if present)
+  // ==========================================================================
+
+  const codexConfigPath = join(homedir(), '.codex', 'config.toml')
+  if (existsSync(codexConfigPath)) {
+    try {
+      let codexConfig = readFileSync(codexConfigPath, 'utf-8')
+      if (codexConfig.includes('vibecraft') || codexConfig.includes('codex-hook')) {
+        // Remove vibecraft-related lines
+        codexConfig = codexConfig
+          .split('\n')
+          .filter(line => !line.includes('vibecraft') && !line.includes('codex-hook'))
+          .join('\n')
+          .replace(/\n{3,}/g, '\n\n') // Clean up multiple blank lines
+          .trim() + '\n'
+        writeFileSync(codexConfigPath, codexConfig)
+        console.log(`Removed vibecraft hook from Codex config`)
+      }
+    } catch (e) {
+      console.warn(`Warning: Failed to update Codex config: ${e.message}`)
+    }
   }
 
   // Remove hooks directory if empty

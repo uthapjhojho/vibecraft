@@ -1,0 +1,122 @@
+{
+  "type": "feature",
+  "feature": "upgrade_vibecraft",
+  "bug": {
+    "title": null,
+    "issue_number": null,
+    "issue_url": null,
+    "severity": null,
+    "branch": null
+  },
+  "branch": {
+    "main": "feature/upgrade_vibecraft",
+    "codex": "codex/upgrade_vibecraft"
+  },
+  "phase": "execution",
+  "phases": {
+    "triage": {
+      "status": "pending",
+      "output": null,
+      "approved": false
+    },
+    "research": {
+      "status": "in_progress",
+      "output": null,
+      "approved": true
+    },
+    "architect": {
+      "status": "complete",
+      "output": null
+    },
+    "planner": {
+      "status": "in_progress",
+      "output": null,
+      "approved": true
+    },
+    "plan": {
+      "status": "pending",
+      "output": null,
+      "approved": false
+    },
+    "execution": {
+      "status": "in_progress",
+      "claude": {
+        "status": "in_progress",
+        "current_task": null
+      },
+      "codex": {
+        "status": "complete",
+        "tasks_completed": 7,
+        "tasks_total": 7,
+        "retry_count": 0
+      }
+    },
+    "fix": {
+      "status": "pending"
+    },
+    "verify": {
+      "status": "pending",
+      "output": null
+    },
+    "reviewer": {
+      "status": "pending",
+      "output": null,
+      "approved": false
+    },
+    "integrator": {
+      "status": "pending",
+      "notion_updated": false,
+      "merged": false
+    }
+  },
+  "autonomous": {
+    "enabled": true,
+    "enabled_at": "2026-02-01T03:11:01Z",
+    "enabled_by": "user",
+    "timeout_hours": 4,
+    "expires_at": "2026-02-01T07:11:01Z",
+    "auto_approved": []
+  },
+  "model_hint": {
+    "phase": "execution",
+    "complexity": "medium",
+    "severity": null,
+    "recommended_model": "sonnet",
+    "updated_at": "2026-02-01T03:09:47Z"
+  },
+  "tasks": {},
+  "checkpoints": {
+    "triage_approved": false,
+    "research_approved": true,
+    "plan_approved": true,
+    "execution_complete": false,
+    "review_approved": false,
+    "integration_complete": false
+  },
+  "history": [
+    {
+      "timestamp": "2026-02-01T02:41:54Z",
+      "message": "Started feature: upgrade_vibecraft (research phase)"
+    },
+    {
+      "timestamp": "2026-02-01T02:55:23Z",
+      "message": "Research approved - proceeding to build"
+    },
+    {
+      "timestamp": "2026-02-01T02:59:41Z",
+      "message": "Architect phase complete - moving to Planner"
+    },
+    {
+      "timestamp": "2026-02-01T03:09:47Z",
+      "message": "Plan approved - starting execution"
+    },
+    {
+      "timestamp": "2026-02-01T03:11:01Z",
+      "message": "Autonomous mode enabled (timeout: 4h)"
+    },
+    {
+      "timestamp": "2026-02-01T03:12:43Z",
+      "message": "Claude-Codex auto: launched 7 task(s) in background"
+    }
+  ]
+}

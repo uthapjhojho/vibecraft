@@ -17,7 +17,7 @@
  */
 
 import type {
-  ClaudeEvent,
+  AgentEvent,
   PreToolUseEvent,
   PostToolUseEvent,
   StopEvent,
@@ -75,8 +75,11 @@ export interface EventTypeMap {
   'post_tool_use': PostToolUseEvent
   'stop': StopEvent
   'user_prompt_submit': UserPromptSubmitEvent
-  'session_start': ClaudeEvent
-  'notification': ClaudeEvent
+  'session_start': AgentEvent
+  'notification': AgentEvent
+  // Codex events
+  'agent_turn_complete': AgentEvent
+  'approval_requested': AgentEvent
 }
 
 export type EventType = keyof EventTypeMap

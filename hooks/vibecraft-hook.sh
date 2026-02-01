@@ -157,6 +157,7 @@ case "$event_type" in
       --arg id "$event_id" \
       --argjson timestamp "$timestamp" \
       --arg type "$event_type" \
+      --arg agentType "claude" \
       --arg sessionId "$session_id" \
       --arg cwd "$cwd" \
       --arg tool "$tool_name" \
@@ -167,6 +168,7 @@ case "$event_type" in
         id: $id,
         timestamp: $timestamp,
         type: $type,
+        agentType: $agentType,
         sessionId: $sessionId,
         cwd: $cwd,
         tool: $tool,
@@ -187,6 +189,7 @@ case "$event_type" in
       --arg id "$event_id" \
       --argjson timestamp "$timestamp" \
       --arg type "$event_type" \
+      --arg agentType "claude" \
       --arg sessionId "$session_id" \
       --arg cwd "$cwd" \
       --arg tool "$tool_name" \
@@ -198,6 +201,7 @@ case "$event_type" in
         id: $id,
         timestamp: $timestamp,
         type: $type,
+        agentType: $agentType,
         sessionId: $sessionId,
         cwd: $cwd,
         tool: $tool,
@@ -223,6 +227,7 @@ case "$event_type" in
       --arg id "$event_id" \
       --argjson timestamp "$timestamp" \
       --arg type "$event_type" \
+      --arg agentType "claude" \
       --arg sessionId "$session_id" \
       --arg cwd "$cwd" \
       --argjson stopHookActive "$stop_hook_active" \
@@ -231,6 +236,7 @@ case "$event_type" in
         id: $id,
         timestamp: $timestamp,
         type: $type,
+        agentType: $agentType,
         sessionId: $sessionId,
         cwd: $cwd,
         stopHookActive: $stopHookActive,
@@ -245,6 +251,7 @@ case "$event_type" in
       --arg id "$event_id" \
       --argjson timestamp "$timestamp" \
       --arg type "$event_type" \
+      --arg agentType "claude" \
       --arg sessionId "$session_id" \
       --arg cwd "$cwd" \
       --arg source "$source_type" \
@@ -252,6 +259,7 @@ case "$event_type" in
         id: $id,
         timestamp: $timestamp,
         type: $type,
+        agentType: $agentType,
         sessionId: $sessionId,
         cwd: $cwd,
         source: $source
@@ -265,6 +273,7 @@ case "$event_type" in
       --arg id "$event_id" \
       --argjson timestamp "$timestamp" \
       --arg type "$event_type" \
+      --arg agentType "claude" \
       --arg sessionId "$session_id" \
       --arg cwd "$cwd" \
       --arg reason "$reason" \
@@ -272,6 +281,7 @@ case "$event_type" in
         id: $id,
         timestamp: $timestamp,
         type: $type,
+        agentType: $agentType,
         sessionId: $sessionId,
         cwd: $cwd,
         reason: $reason
@@ -285,6 +295,7 @@ case "$event_type" in
       --arg id "$event_id" \
       --argjson timestamp "$timestamp" \
       --arg type "$event_type" \
+      --arg agentType "claude" \
       --arg sessionId "$session_id" \
       --arg cwd "$cwd" \
       --arg prompt "$prompt" \
@@ -292,6 +303,7 @@ case "$event_type" in
         id: $id,
         timestamp: $timestamp,
         type: $type,
+        agentType: $agentType,
         sessionId: $sessionId,
         cwd: $cwd,
         prompt: $prompt
@@ -306,6 +318,7 @@ case "$event_type" in
       --arg id "$event_id" \
       --argjson timestamp "$timestamp" \
       --arg type "$event_type" \
+      --arg agentType "claude" \
       --arg sessionId "$session_id" \
       --arg cwd "$cwd" \
       --arg message "$message" \
@@ -314,6 +327,7 @@ case "$event_type" in
         id: $id,
         timestamp: $timestamp,
         type: $type,
+        agentType: $agentType,
         sessionId: $sessionId,
         cwd: $cwd,
         message: $message,
@@ -329,6 +343,7 @@ case "$event_type" in
       --arg id "$event_id" \
       --argjson timestamp "$timestamp" \
       --arg type "$event_type" \
+      --arg agentType "claude" \
       --arg sessionId "$session_id" \
       --arg cwd "$cwd" \
       --arg trigger "$trigger" \
@@ -337,6 +352,7 @@ case "$event_type" in
         id: $id,
         timestamp: $timestamp,
         type: $type,
+        agentType: $agentType,
         sessionId: $sessionId,
         cwd: $cwd,
         trigger: $trigger,
@@ -350,6 +366,7 @@ case "$event_type" in
       --arg id "$event_id" \
       --argjson timestamp "$timestamp" \
       --arg type "unknown" \
+      --arg agentType "claude" \
       --arg sessionId "$session_id" \
       --arg cwd "$cwd" \
       --argjson raw "$input" \
@@ -357,6 +374,7 @@ case "$event_type" in
         id: $id,
         timestamp: $timestamp,
         type: $type,
+        agentType: $agentType,
         sessionId: $sessionId,
         cwd: $cwd,
         raw: $raw

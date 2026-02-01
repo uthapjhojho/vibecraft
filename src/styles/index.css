@@ -3,6 +3,7 @@
 @import './base.css';
 @import './sessions.css';
 @import './feed.css';
+@import './metrics.css';
 @import './prompt.css';
 @import './hud.css';
 @import './modals.css';
